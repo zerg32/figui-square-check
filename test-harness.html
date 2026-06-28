@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SquareCheck Test Harness</title>
+<style>
+  :root {
+    --bg: #0c1018;
+    --surface: #12172a;
+    --elevated: #191e30;
+    --border: #222840;
+    --border-strong: #2a3050;
+    --accent: #f0a030;
+    --accent-rgb: 240, 160, 48;
+    --text-primary: #e2e6f4;
+    --text-muted: #6a7898;
+    --text-dim: #3c4860;
+    --ok: #22c55e;
+    --ok-rgb: 34, 197, 94;
+    --danger: #ef4444;
+    --danger-rgb: 239, 68, 68;
+    --warn: #facc15;
+    --warn-rgb: 250, 204, 21;
+    --info: #3b82f6;
+    --info-rgb: 59, 130, 246;
+  }
+  body {
+    margin: 0;
+    background: #0c1018;
+    color: #e2e6f4;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  #toolbar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 16px;
+    background: #191e30;
+    border-bottom: 1px solid #222840;
+    font-size: 13px;
+    color: #6a7898;
+  }
+  #toolbar button {
+    padding: 4px 12px;
+    background: #12172a;
+    border: 1px solid #222840;
+    border-radius: 4px;
+    color: #6a7898;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  #toolbar button:hover { border-color: #f0a030; color: #f0a030; }
+  #toolbar input {
+    width: 80px;
+    padding: 3px 6px;
+    background: #12172a;
+    border: 1px solid #222840;
+    border-radius: 4px;
+    color: #e2e6f4;
+    font-family: ui-monospace, monospace;
+    font-size: 12px;
+  }
+  #log {
+    height: 120px;
+    overflow-y: auto;
+    background: #0a0d14;
+    border-top: 1px solid #222840;
+    padding: 6px 12px;
+    font-family: ui-monospace, monospace;
+    font-size: 11px;
+    color: #3c4860;
+    white-space: pre-wrap;
+  }
+  #plugin-frame {
+    flex: 1;
+    border: none;
+    background: var(--bg);
+  }
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <span>Mock Machine</span>
+  <span>X</span><input id="mock-x" type="number" step="0.01" value="25.00">
+  <span>Y</span><input id="mock-y" type="number" step="0.01" value="30.00">
+  <span>Z</span><input id="mock-z" type="number" step="0.01" value="-5.00">
+  <button onclick="sendMockStatus()">Send Status</button>
+  <button onclick="sendMockProbe()">Send [PRB]</button>
+  <span style="margin-left:auto;color:#22c55e" id="status-led">● Connected</span>
+</div>
+
+<iframe id="plugin-frame"></iframe>
+
+<div id="log">Log ready.</div>
+
+<script>
+const iframe = document.getElementById('plugin-frame');
+const logEl = document.getElementById('log');
+
+function log(msg) {
+  const div = document.createElement('div');
+  div.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+  logEl.appendChild(div);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+// --- Mock API handlers ---
+const pending = {};
+let msgId = 0;
+let statusInterval = null;
+const statusSubs = new Set();
+const lineSubs = new Set();
+const machinePos = { x: 25, y: 30, z: -5 };
+
+// Listen for requests from the plugin iframe
+window.addEventListener('message', e => {
+  if (e.data?.type === 'fluid-request') {
+    const { id, method, params } = e.data;
+    handleMethod(id, method, params);
+  }
+});
+
+async function handleMethod(id, method, params) {
+  switch (method) {
+
+    case 'subscribe':
+      if (params.event === 'status') {
+        statusSubs.add(id);
+        if (!statusInterval) {
+          statusInterval = setInterval(() => {
+            const x = parseFloat(document.getElementById('mock-x').value) || 0;
+            const y = parseFloat(document.getElementById('mock-y').value) || 0;
+            const z = parseFloat(document.getElementById('mock-z').value) || 0;
+            sendToPlugin('fluid-event', {
+              event: 'status',
+              data: {
+                wco: { x: 0, y: 0, z: 0 },
+                wpos: { x, y, z },
+                state: 'Idle',
+              }
+            });
+          }, 500);
+        }
+        respond(id, true);
+      } else if (params.event === 'line') {
+        lineSubs.add(id);
+        respond(id, true);
+      } else {
+        respond(id, true);
+      }
+      break;
+
+    case 'unsubscribe':
+      if (params.event === 'status') {
+        statusSubs.clear();
+        if (statusInterval) { clearInterval(statusInterval); statusInterval = null; }
+      }
+      if (params.event === 'line') lineSubs.clear();
+      respond(id, true);
+      break;
+
+    case 'sendCommand':
+      log('G-code: ' + params.command);
+      // Simulate a probe result if G38.2
+      if (params.command.startsWith('G38.2')) {
+        // Parse the command to find target position
+        const match = params.command.match(/G38\.2\s+([XYZ])([-\d.]+)/);
+        if (match) {
+          const axis = match[1];
+          const target = parseFloat(match[2]);
+          // Simulate triggering at the target
+          setTimeout(() => {
+            sendMockProbeResult();
+          }, 200);
+        }
+      }
+      // Simulate coordinate changes for G0/G1 commands
+      if (params.command.startsWith('G0') || params.command.startsWith('G1')) {
+        const xm = params.command.match(/X([-\d.]+)/);
+        const ym = params.command.match(/Y([-\d.]+)/);
+        if (xm) document.getElementById('mock-x').value = parseFloat(xm[1]).toFixed(3);
+        if (ym) document.getElementById('mock-y').value = parseFloat(ym[1]).toFixed(3);
+        if (xm || ym) {
+          machinePos.x = parseFloat(document.getElementById('mock-x').value);
+          machinePos.y = parseFloat(document.getElementById('mock-y').value);
+        }
+      }
+      respond(id, 'ok');
+      break;
+
+    case 'sendRealtime':
+      log('Realtime byte: ' + params.byte);
+      respond(id, true);
+      break;
+
+    default:
+      log('Unknown method: ' + method);
+      respond(id, null);
+  }
+}
+
+function respond(id, result) {
+  iframe.contentWindow.postMessage({ type: 'fluid-response', id, result }, '*');
+}
+
+function sendToPlugin(type, data) {
+  iframe.contentWindow.postMessage({ type, ...data }, '*');
+}
+
+function sendMockStatus() {
+  const x = parseFloat(document.getElementById('mock-x').value) || 0;
+  const y = parseFloat(document.getElementById('mock-y').value) || 0;
+  const z = parseFloat(document.getElementById('mock-z').value) || 0;
+  sendToPlugin('fluid-event', {
+    event: 'status',
+    data: {
+      wco: { x: 0, y: 0, z: 0 },
+      wpos: { x, y, z },
+      state: 'Idle',
+    }
+  });
+  log('Status sent: X=' + x.toFixed(3) + ' Y=' + y.toFixed(3) + ' Z=' + z.toFixed(3));
+}
+
+function sendMockProbe() {
+  sendMockProbeResult();
+}
+
+function sendMockProbeResult() {
+  const x = parseFloat(document.getElementById('mock-x').value) || 0;
+  const y = parseFloat(document.getElementById('mock-y').value) || 0;
+  const z = parseFloat(document.getElementById('mock-z').value) || 0;
+  sendToPlugin('fluid-event', {
+    event: 'line',
+    data: `[PRB:${x.toFixed(3)},${y.toFixed(3)},${z.toFixed(3)}:1]`,
+  });
+  log('Probe result sent: [PRB:' + x.toFixed(3) + ',' + y.toFixed(3) + ',' + z.toFixed(3) + ':1]');
+}
+
+// --- Load plugin ---
+async function init() {
+  try {
+    // Fetch plugin files
+    const htmlResp = await fetch('plugins/square-check/index.html');
+    let html = await htmlResp.text();
+
+    // Extract inline CSS and JS from the plugin HTML
+    const cssMatch = html.match(/<link rel="stylesheet" href="style.css">/);
+    if (cssMatch) {
+      const cssResp = await fetch('plugins/square-check/style.css');
+      const css = await cssResp.text();
+      html = html.replace('<link rel="stylesheet" href="style.css">', '<style>' + css + '</style>');
+    }
+
+    // Write to iframe (blob URL avoids srcdoc reload on resize)
+    const blob = new Blob([html], { type: 'text/html' });
+    iframe.src = URL.createObjectURL(blob);
+    log('Plugin loaded into iframe');
+
+    // Send initial status after a delay
+    setTimeout(sendMockStatus, 500);
+  } catch (e) {
+    log('Error: ' + e.message);
+  }
+}
+
+init();
+</script>
+</body>
+</html>

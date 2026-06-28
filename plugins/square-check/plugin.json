@@ -1,0 +1,11 @@
+{
+  "name": "Square Check",
+  "description": "Probe squares and straight edges to measure squareness and straightness using a touch probe. Supports outside (solid square) and inside (pocket) probing.",
+  "version": "1.0.0",
+  "entry": "index.html",
+  "icon": "icon.png",
+  "layout": "workspace",
+  "layoutTablet": "full",
+  "layoutMobile": "full",
+  "files": ["index.html", "style.css", "icon.png"]
+}

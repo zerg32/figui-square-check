@@ -1,0 +1,1590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Square Check</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="header">
+  <div class="tab-group">
+    <button class="tab active" id="tab-squareness" onclick="switchTab('squareness')">Squareness</button>
+    <button class="tab"        id="tab-straightness" onclick="switchTab('straightness')">Straightness</button>
+    <button class="tab"        id="tab-repeatability" onclick="switchTab('repeatability')">Repeatability</button>
+  </div>
+</div>
+<div class="mode-bar" id="mode-bar">
+  <span class="mode-label">Probe Mode</span>
+  <select id="probe-side" class="mode-select" onchange="onProbeSideChange()">
+    <option value="outside">Outside — solid square</option>
+    <option value="inside">Inside — pocket/bore</option>
+  </select>
+</div>
+
+<div class="split-layout">
+
+  <div class="split-left">
+
+    <!-- ===================== SQUARENESS PANEL ===================== -->
+    <div id="panel-squareness">
+
+      <!-- Edges -->
+      <div class="section">
+        <div class="section-hd"><span class="section-label">Edges</span></div>
+        <div class="edge-group" id="edgeA-group">
+          <div class="edge-header">
+            <span class="edge-name">Edge A</span>
+            <span class="edge-orient" id="edgeA-orient"></span>
+            <div class="edge-actions">
+              <button class="rec-btn" id="edgeA-start-btn" onclick="recordEdge('A','start')">Record Start</button>
+              <button class="rec-btn" id="edgeA-end-btn"   onclick="recordEdge('A','end')">Record End</button>
+            </div>
+          </div>
+          <div class="edge-coords" id="edgeA-coords">
+            <span>Start: <span id="edgeA-start-val" class="edge-coord-label">—</span></span>
+            <span>End: <span id="edgeA-end-val" class="edge-coord-label">—</span></span>
+          </div>
+          <div class="edge-dir" id="edgeA-dir" style="display:none">
+            <span class="edge-dir-label">Probe direction:</span>
+            <div class="dir-btn-group" id="edgeA-dir-btns"></div>
+          </div>
+        </div>
+        <div class="edge-group" id="edgeB-group">
+          <div class="edge-header">
+            <span class="edge-name">Edge B</span>
+            <span class="edge-orient" id="edgeB-orient"></span>
+            <div class="edge-actions">
+              <button class="rec-btn" id="edgeB-start-btn" onclick="recordEdge('B','start')">Record Start</button>
+              <button class="rec-btn" id="edgeB-end-btn"   onclick="recordEdge('B','end')">Record End</button>
+            </div>
+          </div>
+          <div class="edge-coords" id="edgeB-coords">
+            <span>Start: <span id="edgeB-start-val" class="edge-coord-label">—</span></span>
+            <span>End: <span id="edgeB-end-val" class="edge-coord-label">—</span></span>
+          </div>
+          <div class="edge-dir" id="edgeB-dir" style="display:none">
+            <span class="edge-dir-label">Probe direction:</span>
+            <div class="dir-btn-group" id="edgeB-dir-btns"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Parameters -->
+      <div class="section">
+        <div class="section-hd"><span class="section-label">Parameters</span></div>
+        <div class="params-body">
+          <div class="param-row">
+            <span class="param-label">Points per edge</span>
+            <div class="param-controls">
+              <input class="param-input" type="number" id="sq-points" value="5" min="3" max="10" step="1">
+              <span class="param-unit">pts</span>
+            </div>
+          </div>
+          <div class="param-row">
+            <span class="param-label">Probe feed</span>
+            <div class="param-controls">
+              <input class="param-input" type="number" id="sq-feed" value="100" min="10" max="2000" step="10">
+              <span class="param-unit">mm/min</span>
+            </div>
+          </div>
+          <div class="param-row">
+            <span class="param-label">Probe distance</span>
+            <div class="param-controls">
+              <input class="param-input" type="number" id="sq-dist" value="15" min="1" step="0.5">
+              <span class="param-unit">mm</span>
+            </div>
+          </div>
+          <div class="param-row">
+            <span class="param-label">Safe Z (optional)</span>
+            <div class="param-controls">
+              <input class="param-input" type="number" id="sq-safe-z" value="10" step="0.5">
+              <span class="param-unit">mm</span>
+            </div>
+          </div>
+          <div class="param-row">
+            <span class="param-label"></span>
+            <div class="param-controls" style="gap:6px">
+              <input type="checkbox" id="sq-lift-between" checked>
+              <label for="sq-lift-between" style="font-size:13px;color:var(--text-muted,#6a7898);white-space:nowrap">Only lift Z between edges</label>
+            </div>
+          </div>
+          <div class="param-row">
+            <span class="param-label">Tolerance</span>
+            <div class="param-controls">
+              <input class="param-input" type="number" id="sq-tol" value="0.025" min="0.001" max="5" step="0.005">
+              <span class="param-unit">deg</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section hint-section">
+        <div class="hint-text">
+          Jog the probe to the start of each edge (offset perpendicularly from the face), record start and end, then set parameters and press Start.
+        </div>
+      </div>
+
+      <div class="section" id="sq-steps-section" style="display:none">
+        <div class="section-hd"><span class="section-label">Progress</span></div>
+        <div id="sq-steps-list" class="steps-list"></div>
+      </div>
+
+      <div class="section" id="sq-results-section" style="display:none">
+        <div class="section-hd"><span class="section-label">Results</span></div>
+        <div id="sq-results-body" class="results-body"></div>
+      </div>
+
+      <div class="action-bar">
+        <button class="primary-btn"   id="sq-start-btn" onclick="startSquareness()">Start Squareness Test</button>
+        <button class="danger-btn"    id="sq-abort-btn" onclick="abortProbe()" style="display:none">Abort</button>
+        <button class="secondary-btn" id="sq-reset-btn" onclick="resetSquareness()" style="display:none">Reset</button>
+      </div>
+
+    </div>
+
+    <!-- ===================== STRAIGHTNESS PANEL ===================== -->
+    <div id="panel-straightness" style="display:none">
+
+      <!-- Edge -->
+      <div class="section">
+        <div class="section-hd"><span class="section-label">Edge</span></div>
+        <div class="edge-group" id="edgeS-group">
+          <div class="edge-header">
+            <span class="edge-name">Straight Edge</span>
+            <span class="edge-orient" id="edgeS-orient"></span>
+            <div class="edge-actions">
+              <button class="rec-btn" id="edgeS-start-btn" onclick="recordEdge('S','start')">Record Start</button>
+              <button class="rec-btn" id="edgeS-end-btn"   onclick="recordEdge('S','end')">Record End</button>
+            </div>
+          </div>
+          <div class="edge-coords" id="edgeS-coords">
+            <span>Start: <span id="edgeS-start-val" class="edge-coord-label">—</span></span>
+            <span>End: <span id="edgeS-end-val" class="edge-coord-label">—</span></span>
+          </div>
+          <div class="edge-dir" id="edgeS-dir" style="display:none">
+            <span class="edge-dir-label">Probe direction:</span>
+            <div class="dir-btn-group" id="edgeS-dir-btns"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Parameters -->
+      <div class="section">
+        <div class="section-hd"><span class="section-label">Parameters</span></div>
+        <div class="params-body">
+          <div class="param-row">
+            <span class="param-label">Number of points</span>
+            <div class="param-controls">
+              <input class="param-input" type="number" id="st-points" value="10" min="5" max="30" step="1">
+              <span class="param-unit">pts</span>
+            </div>
+          </div>
+          <div class="param-row">
+            <span class="param-label">Probe feed</span>
+            <div class="param-controls">
+              <input class="param-input" type="number" id="st-feed" value="100" min="10" max="2000" step="10">
+              <span class="param-unit">mm/min</span>
+            </div>
+          </div>
+          <div class="param-row">
+            <span class="param-label">Probe distance</span>
+            <div class="param-controls">
+              <input class="param-input" type="number" id="st-dist" value="15" min="1" step="0.5">
+              <span class="param-unit">mm</span>
+            </div>
+          </div>
+          <div class="param-row">
+            <span class="param-label">Safe Z (optional)</span>
+            <div class="param-controls">
+              <input class="param-input" type="number" id="st-safe-z" value="10" step="0.5">
+              <span class="param-unit">mm</span>
+            </div>
+          </div>
+          <div class="param-row">
+            <span class="param-label"></span>
+            <div class="param-controls" style="gap:6px">
+              <input type="checkbox" id="st-lift-between" checked>
+              <label for="st-lift-between" style="font-size:13px;color:var(--text-muted,#6a7898);white-space:nowrap">Only lift Z between edges</label>
+            </div>
+          </div>
+          <div class="param-row">
+            <span class="param-label">Tolerance</span>
+            <div class="param-controls">
+              <input class="param-input" type="number" id="st-tol" value="0.25" min="0.001" max="5" step="0.005">
+              <span class="param-unit">mm</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section hint-section">
+        <div class="hint-text">
+          Jog the probe to one end of the straight edge (offset perpendicularly from the face), record start and end, then set parameters and press Start.
+        </div>
+      </div>
+
+      <div class="section" id="st-steps-section" style="display:none">
+        <div class="section-hd"><span class="section-label">Progress</span></div>
+        <div id="st-steps-list" class="steps-list"></div>
+      </div>
+
+      <div class="section" id="st-results-section" style="display:none">
+        <div class="section-hd"><span class="section-label">Results</span></div>
+        <div id="st-results-body" class="results-body"></div>
+      </div>
+
+      <div class="action-bar">
+        <button class="primary-btn"   id="st-start-btn" onclick="startStraightness()">Start Straightness Test</button>
+        <button class="danger-btn"    id="st-abort-btn" onclick="abortProbe()" style="display:none">Abort</button>
+        <button class="secondary-btn" id="st-reset-btn" onclick="resetStraightness()" style="display:none">Reset</button>
+      </div>
+
+    </div>
+
+    <!-- ===================== REPEATABILITY PANEL ===================== -->
+    <div id="panel-repeatability" style="display:none">
+
+      <div class="section">
+        <div class="section-hd"><span class="section-label">Target Position</span></div>
+        <div class="params-body">
+          <div class="param-row">
+            <span class="param-label">X</span>
+            <div class="param-controls">
+              <input class="param-input" type="number" id="rp-target-x" value="0" step="0.001">
+              <span class="param-unit">mm</span>
+            </div>
+          </div>
+          <div class="param-row">
+            <span class="param-label">Y</span>
+            <div class="param-controls">
+              <input class="param-input" type="number" id="rp-target-y" value="0" step="0.001">
+              <span class="param-unit">mm</span>
+            </div>
+          </div>
+          <button class="secondary-btn" onclick="recordRPTarget()" style="margin-top:6px;width:100%;padding:8px 14px">Get Current Position</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-hd"><span class="section-label">Probe Direction</span></div>
+        <div class="params-body" style="gap:0;padding:9px 14px">
+          <div class="dir-btn-group" id="rp-dir-btns">
+            <button class="dir-btn active" data-dir="+Y" onclick="setRPDir('+Y')">+Y</button>
+            <button class="dir-btn" data-dir="-Y" onclick="setRPDir('-Y')">-Y</button>
+            <button class="dir-btn" data-dir="+X" onclick="setRPDir('+X')">+X</button>
+            <button class="dir-btn" data-dir="-X" onclick="setRPDir('-X')">-X</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-hd"><span class="section-label">Parameters</span></div>
+        <div class="params-body">
+          <div class="param-row">
+            <span class="param-label">Number of repeats</span>
+            <div class="param-controls">
+              <input class="param-input" type="number" id="rp-repeats" value="10" min="5" max="50" step="1">
+              <span class="param-unit">pts</span>
+            </div>
+          </div>
+          <div class="param-row">
+            <span class="param-label">Probe feed</span>
+            <div class="param-controls">
+              <input class="param-input" type="number" id="rp-feed" value="100" min="10" max="2000" step="10">
+              <span class="param-unit">mm/min</span>
+            </div>
+          </div>
+          <div class="param-row">
+            <span class="param-label">Probe distance</span>
+            <div class="param-controls">
+              <input class="param-input" type="number" id="rp-dist" value="15" min="1" step="0.5">
+              <span class="param-unit">mm</span>
+            </div>
+          </div>
+          <div class="param-row">
+            <span class="param-label">Safe Z (optional)</span>
+            <div class="param-controls">
+              <input class="param-input" type="number" id="rp-safe-z" value="10" step="0.5">
+              <span class="param-unit">mm</span>
+            </div>
+          </div>
+          <div class="param-row">
+            <span class="param-label"></span>
+            <div class="param-controls" style="gap:6px">
+              <input type="checkbox" id="rp-lift-between" checked>
+              <label for="rp-lift-between" style="font-size:13px;color:var(--text-muted,#6a7898);white-space:nowrap">Only lift Z on first repeat</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section" id="rp-steps-section" style="display:none">
+        <div class="section-hd"><span class="section-label">Progress</span></div>
+        <div id="rp-steps-list" class="steps-list"></div>
+      </div>
+
+      <div class="section" id="rp-results-section" style="display:none">
+        <div class="section-hd"><span class="section-label">Results</span></div>
+        <div id="rp-results-body" class="results-body"></div>
+      </div>
+
+      <div class="action-bar">
+        <button class="primary-btn"   id="rp-start-btn" onclick="startRepeatability()">Start Repeatability Test</button>
+        <button class="danger-btn"    id="rp-abort-btn" onclick="abortProbe()" style="display:none">Abort</button>
+        <button class="secondary-btn" id="rp-reset-btn" onclick="resetRepeatability()" style="display:none">Reset</button>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- DIAGRAM -->
+  <div class="split-right">
+    <div class="diagram-wrap">
+      <canvas id="probe-canvas"></canvas>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+
+// =============================================================================
+// API bridge
+// =============================================================================
+let msgId = 0
+const pending = {}
+
+function call(method, params) {
+  return new Promise((resolve, reject) => {
+    const id = String(++msgId)
+    pending[id] = { resolve, reject }
+    window.parent.postMessage({ type: 'fluid-request', id, method, params: params ?? {} }, '*')
+  })
+}
+
+function logProbe(entry) {
+  state.probeLog.push({ t: Date.now(), ...entry })
+}
+
+function clearProbeLog() {
+  state.probeLog = []
+}
+
+function getProbeLog() {
+  return state.probeLog.map(e => ({ ...e }))
+}
+
+let wakeLock = null
+
+async function requestWakeLock() {
+  try {
+    if (navigator.wakeLock) {
+      wakeLock = await navigator.wakeLock.request('screen')
+    }
+  } catch (_) {}
+}
+
+function releaseWakeLock() {
+  if (wakeLock) {
+    wakeLock.release()
+    wakeLock = null
+  }
+}
+
+window.getProbeLog = getProbeLog
+window.clearProbeLog = clearProbeLog
+
+window.addEventListener('message', e => {
+  if (e.data?.type === 'fluid-response') {
+    const p = pending[e.data.id]
+    if (p) {
+      delete pending[e.data.id]
+      e.data.error ? p.reject(new Error(e.data.error)) : p.resolve(e.data.result)
+    }
+  }
+  if (e.data?.type === 'fluid-event' && e.data.event === 'status') {
+    const s = e.data.data
+    if (s?.wco)  state.wco = s.wco
+    if (s?.wpos) state.toolPos = s.wpos
+    if (state.probing && (s?.state === 'Alarm' || s?.state === 'Door')) {
+      logProbe({ type: 'alarm', state: s.state })
+      state.abort = true
+      if (state.probeReject) {
+        state.probeReject(new Error('Machine alarm — probing interrupted'))
+        state.probeReject = null
+      }
+    }
+  }
+})
+
+// =============================================================================
+// State
+// =============================================================================
+const state = {
+  wco:         { x: 0, y: 0, z: 0 },
+  toolPos:     null,
+  probing:     false,
+  abort:       false,
+  probeReject: null,
+  activeTab:   'squareness',
+  probeSide:   'outside',
+  probeLog:    [],
+
+  edges: {
+    A: { start: null, end: null, dir: '+Y', orient: null },
+    B: { start: null, end: null, dir: '+X', orient: null },
+    S: { start: null, end: null, dir: '+Y', orient: null },
+
+  },
+
+  result:  null,
+  diagram: null,
+}
+
+// =============================================================================
+// Toast
+// =============================================================================
+let toastTimer
+function toast(msg, type = 'ok') {
+  const el = document.getElementById('toast')
+  el.textContent = msg
+  el.className = 'show ' + type
+  clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => { el.className = '' }, 2800)
+}
+
+// =============================================================================
+// Tab switching
+// =============================================================================
+function switchTab(tab) {
+  state.activeTab = tab
+  document.getElementById('panel-squareness').style.display    = tab === 'squareness' ? '' : 'none'
+  document.getElementById('panel-straightness').style.display   = tab === 'straightness' ? '' : 'none'
+  document.getElementById('panel-repeatability').style.display = tab === 'repeatability' ? '' : 'none'
+  document.getElementById('tab-squareness').classList.toggle('active', tab === 'squareness')
+  document.getElementById('tab-straightness').classList.toggle('active', tab === 'straightness')
+  document.getElementById('tab-repeatability').classList.toggle('active', tab === 'repeatability')
+  document.getElementById('mode-bar').style.display = tab === 'squareness' ? '' : 'none'
+  drawDiagram()
+}
+
+function onProbeSideChange() {
+  state.probeSide = document.getElementById('probe-side').value
+  drawDiagram()
+}
+
+// =============================================================================
+// Edge recording
+// =============================================================================
+function recordEdge(edge, which) {
+  if (!state.toolPos) { toast('Waiting for machine position...', 'warn'); return }
+
+  const pos = { x: state.toolPos.x, y: state.toolPos.y }
+  state.edges[edge][which] = pos
+
+  updateEdgeUI(edge)
+
+  if (state.edges[edge].start && state.edges[edge].end) {
+    detectEdgeOrientation(edge)
+  }
+
+  drawDiagram()
+}
+
+function updateEdgeUI(edge) {
+  const e = state.edges[edge]
+  const elStart = document.getElementById(`edge${edge}-start-val`)
+  const elEnd   = document.getElementById(`edge${edge}-end-val`)
+
+  elStart.textContent = e.start ? `${e.start.x.toFixed(3)}, ${e.start.y.toFixed(3)}` : '—'
+  elEnd.textContent   = e.end   ? `${e.end.x.toFixed(3)}, ${e.end.y.toFixed(3)}` : '—'
+  elStart.className = e.start ? 'filled' : 'edge-coord-label'
+  elEnd.className   = e.end   ? 'filled' : 'edge-coord-label'
+
+  document.getElementById(`edge${edge}-start-btn`).classList.toggle('recorded', !!e.start)
+  document.getElementById(`edge${edge}-end-btn`).classList.toggle('recorded', !!e.end)
+}
+
+function detectEdgeOrientation(edge) {
+  const e = state.edges[edge]
+  const dx = Math.abs(e.end.x - e.start.x)
+  const dy = Math.abs(e.end.y - e.start.y)
+
+  const orient = dx >= dy ? 'horizontal' : 'vertical'
+  e.orient = orient
+
+  document.getElementById(`edge${edge}-orient`).textContent = orient
+
+  const dirOptions = orient === 'horizontal' ? ['+Y', '-Y'] : ['+X', '-X']
+  const defaultDir = dirOptions[0]
+  e.dir = defaultDir
+
+  const container = document.getElementById(`edge${edge}-dir-btns`)
+  container.innerHTML = dirOptions.map(d =>
+    `<button class="dir-btn${d === defaultDir ? ' active' : ''}" onclick="setEdgeDir('${edge}','${d}')">${d}</button>`
+  ).join('')
+
+  document.getElementById(`edge${edge}-dir`).style.display = ''
+}
+
+function setEdgeDir(edge, dir) {
+  state.edges[edge].dir = dir
+  document.querySelectorAll(`#edge${edge}-dir-btns .dir-btn`).forEach(b => {
+    b.classList.toggle('active', b.textContent === dir)
+  })
+  drawDiagram()
+}
+
+// =============================================================================
+// Probe primitive
+// =============================================================================
+function doProbe(axis, target, feedRate) {
+  return new Promise((resolve, reject) => {
+    let settled = false
+
+    function settle(fn) {
+      if (settled) return
+      settled = true
+      state.probeReject = null
+      clearTimeout(tid)
+      window.removeEventListener('message', onMsg)
+      fn()
+    }
+
+    const tid = setTimeout(
+      () => settle(() => reject(new Error('No probe response (30 s timeout)'))),
+      30000
+    )
+
+    const onMsg = e => {
+      if (e.data?.type !== 'fluid-event' || e.data.event !== 'line') return
+      const m = String(e.data.data ?? '').match(/\[PRB:([^,]+),([^,]+),([^:]+):([01])\]/)
+      if (m) {
+        const mx = parseFloat(m[1]), my = parseFloat(m[2]), mz = parseFloat(m[3]), ok = m[4] === '1'
+        doProbeResult(mx, my, mz, ok)
+        settle(() => resolve({ mx, my, mz, ok }))
+      }
+    }
+    window.addEventListener('message', onMsg)
+    state.probeReject = err => settle(() => reject(err))
+
+    const cmd = axis === 'X'
+      ? `G38.2 X${target.toFixed(3)} F${feedRate}`
+      : `G38.2 Y${target.toFixed(3)} F${feedRate}`
+    logProbe({ type: 'probe', cmd, axis, target, feedRate })
+    call('sendCommand', { command: cmd })
+  })
+}
+
+function doProbeResult(mx, my, mz, ok) {
+  logProbe({ type: 'probe_result', mx, my, mz, ok })
+}
+
+function f3(v) { return v.toFixed(3) }
+
+// =============================================================================
+// Steps UI
+// =============================================================================
+function initSteps(prefix, steps) {
+  const list = document.getElementById(prefix + '-steps-list')
+  list.innerHTML = steps.map(s =>
+    `<div class="step-row">
+       <span class="step-dot pending" id="dot-${prefix}-${s.id}"></span>
+       <span class="step-label">${s.label}</span>
+       <span class="step-val" id="val-${prefix}-${s.id}"></span>
+     </div>`
+  ).join('')
+  document.getElementById(prefix + '-steps-section').style.display = ''
+}
+
+function setStep(prefix, id, status, val) {
+  const dot = document.getElementById(`dot-${prefix}-${id}`)
+  const valEl = document.getElementById(`val-${prefix}-${id}`)
+  if (dot)   dot.className = `step-dot ${status}`
+  if (valEl && val !== undefined) valEl.textContent = val
+}
+
+function markActiveError(prefix, steps) {
+  for (const s of steps) {
+    const dot = document.getElementById(`dot-${prefix}-${s.id}`)
+    if (dot && dot.className.includes('active')) dot.className = 'step-dot error'
+  }
+}
+
+// =============================================================================
+// Geometry helpers
+// =============================================================================
+function interpolatePoints(p1, p2, n) {
+  const pts = []
+  for (let i = 0; i < n; i++) {
+    const t = n > 1 ? i / (n - 1) : 0
+    pts.push({ x: p1.x + (p2.x - p1.x) * t, y: p1.y + (p2.y - p1.y) * t })
+  }
+  return pts
+}
+
+function fitLine(pts) {
+  const n = pts.length
+  if (n < 2) return null
+  let sx = 0, sy = 0, sxx = 0, sxy = 0, syy = 0
+  for (const p of pts) {
+    sx  += p.x; sy  += p.y
+    sxx += p.x * p.x; sxy += p.x * p.y; syy += p.y * p.y
+  }
+  const mx = sx / n, my = sy / n
+  const dx = sxx - sx * mx, dy = syy - sy * my, dxy = sxy - sx * my
+
+  const useX = dx >= dy
+  if (useX) {
+    const m = dxy / dx
+    const b = my - m * mx
+    return { m, b, useX: true, mx, my }
+  } else {
+    const m = dxy / dy
+    const b = mx - m * my
+    return { m, b, useX: false, mx, my }
+  }
+}
+
+function lineY(l, x) { return l.m * x + l.b }
+function lineX(l, y) { return l.m * y + l.b }
+
+function angleBetweenLines(l1, l2) {
+  let a1, a2
+  if (l1.useX) a1 = Math.atan(l1.m)
+  else a1 = Math.atan2(1, l1.m)
+
+  if (l2.useX) a2 = Math.atan(l2.m)
+  else a2 = Math.atan2(1, l2.m)
+
+  let diff = Math.abs(a1 - a2)
+  diff = Math.min(diff, Math.PI - diff)
+  return diff * 180 / Math.PI
+}
+
+function perpDistance(px, py, l) {
+  if (l.useX) {
+    const a = -l.m, b = 1, c = -l.b
+    return Math.abs(a * px + b * py + c) / Math.sqrt(a * a + b * b)
+  } else {
+    const a = 1, b = -l.m, c = -l.b
+    return Math.abs(a * px + b * py + c) / Math.sqrt(a * a + b * b)
+  }
+}
+
+// =============================================================================
+// Probe direction helpers
+// =============================================================================
+function getProbeAxis(orient) {
+  return orient === 'horizontal' ? 'Y' : 'X'
+}
+
+function getProbeTarget(startPos, dist, dir) {
+  const axis = dir[1]
+  const sign = dir[0] === '+' ? 1 : -1
+  if (axis === 'X') return startPos.x + dist * sign
+  else return startPos.y + dist * sign
+}
+
+function getRetractPos(startPos, dir, dist) {
+  const axis = dir[1]
+  const sign = dir[0] === '+' ? 1 : -1
+  if (axis === 'X') return { x: startPos.x - dist * sign * 1.5, y: startPos.y }
+  else return { x: startPos.x, y: startPos.y - dist * sign * 1.5 }
+}
+
+function retractMove(axis, x, y) {
+  logProbe({ type: 'retract', axis, x, y })
+  if (axis === 'X') call('sendCommand', { command: `G0 X${f3(x)}` })
+  else call('sendCommand', { command: `G0 Y${f3(y)}` })
+}
+
+function safeMoveTo(x, y, safeZ, origZ, lift) {
+  if (lift && safeZ != null && !isNaN(safeZ)) {
+    logProbe({ type: 'safe_z', from: origZ, to: safeZ })
+    call('sendCommand', { command: `G0 Z${f3(safeZ)}` })
+  }
+  logProbe({ type: 'move', x, y })
+  call('sendCommand', { command: `G0 X${f3(x)} Y${f3(y)}` })
+  if (lift && safeZ != null && !isNaN(safeZ)) {
+    call('sendCommand', { command: `G0 Z${f3(origZ)}` })
+  }
+}
+
+// =============================================================================
+// SQUARENESS TEST
+// =============================================================================
+async function startSquareness() {
+  if (!state.toolPos) { toast('Waiting for machine position...', 'warn'); return }
+  if (!state.edges.A.start || !state.edges.A.end) { toast('Record Edge A start and end', 'warn'); return }
+  if (!state.edges.B.start || !state.edges.B.end) { toast('Record Edge B start and end', 'warn'); return }
+
+  const nPoints   = parseInt(document.getElementById('sq-points').value) || 5
+  const feed      = parseInt(document.getElementById('sq-feed').value)   || 100
+  const probeDist = parseFloat(document.getElementById('sq-dist').value) || 15
+  const tolerance = parseFloat(document.getElementById('sq-tol').value)  || 0.05
+  const side      = state.probeSide
+  const safeZ     = parseFloat(document.getElementById('sq-safe-z').value)
+  const origZ     = state.toolPos.z
+  const liftBet   = document.getElementById('sq-lift-between').checked
+
+  const SQ_STEPS = [
+    { id: 'edgeA', label: `Probe Edge A (${nPoints} points)` },
+    { id: 'edgeB', label: `Probe Edge B (${nPoints} points)` },
+    { id: 'calc',  label: 'Calculating squareness...' },
+  ]
+
+  state.probing = true
+  state.abort   = false
+  state.result  = null
+  requestWakeLock()
+
+  document.getElementById('sq-start-btn').style.display = 'none'
+  document.getElementById('sq-abort-btn').style.display = ''
+  document.getElementById('sq-reset-btn').style.display = 'none'
+  document.getElementById('sq-results-section').style.display = 'none'
+
+  clearProbeLog()
+  logProbe({ type: 'test_start', test: 'squareness', nPoints, feed, probeDist, tolerance, side, safeZ, origZ })
+  initSteps('sq', SQ_STEPS)
+  await call('subscribe', { event: 'line' })
+
+  const edgeAContacts = []
+  const edgeBContacts = []
+
+  try {
+    // --- Probe Edge A ---
+    setStep('sq', 'edgeA', 'active')
+    const ptsA = interpolatePoints(state.edges.A.start, state.edges.A.end, nPoints)
+    const axisA = getProbeAxis(state.edges.A.orient)
+    const dirA  = state.edges.A.dir
+
+    for (let i = 0; i < ptsA.length; i++) {
+      if (state.abort) throw new Error('Aborted')
+      const pt = ptsA[i]
+      safeMoveTo(pt.x, pt.y, safeZ, origZ, !liftBet || i === 0)
+      if (state.abort) throw new Error('Aborted')
+      const target = getProbeTarget(pt, probeDist, dirA)
+      const prb = await doProbe(axisA, target, feed)
+      if (!prb.ok) throw new Error(`Edge A point ${i + 1}: probe did not trigger`)
+
+      const cx = prb.mx - state.wco.x
+      const cy = prb.my - state.wco.y
+      edgeAContacts.push({ x: cx, y: cy })
+
+      const ret = getRetractPos(pt, dirA, probeDist)
+      retractMove(axisA, ret.x, ret.y)
+    }
+    setStep('sq', 'edgeA', 'done', `${edgeAContacts.length} points`)
+    state.diagram = { mode: 'squareness', edgeAContacts: [...edgeAContacts], edgeBContacts: [], lineA: null, lineB: null, angle: null, error: null, side }
+    drawDiagram()
+
+    // --- Probe Edge B ---
+    setStep('sq', 'edgeB', 'active')
+    const ptsB = interpolatePoints(state.edges.B.start, state.edges.B.end, nPoints)
+    const axisB = getProbeAxis(state.edges.B.orient)
+    const dirB  = state.edges.B.dir
+
+    for (let i = 0; i < ptsB.length; i++) {
+      if (state.abort) throw new Error('Aborted')
+      const pt = ptsB[i]
+      safeMoveTo(pt.x, pt.y, safeZ, origZ, !liftBet || i === 0)
+      if (state.abort) throw new Error('Aborted')
+      const target = getProbeTarget(pt, probeDist, dirB)
+      const prb = await doProbe(axisB, target, feed)
+      if (!prb.ok) throw new Error(`Edge B point ${i + 1}: probe did not trigger`)
+
+      const cx = prb.mx - state.wco.x
+      const cy = prb.my - state.wco.y
+      edgeBContacts.push({ x: cx, y: cy })
+
+      const ret = getRetractPos(pt, dirB, probeDist)
+      retractMove(axisB, ret.x, ret.y)
+    }
+    setStep('sq', 'edgeB', 'done', `${edgeBContacts.length} points`)
+
+    // --- Calculate ---
+    setStep('sq', 'calc', 'active')
+    const lineA = fitLine(edgeAContacts)
+    const lineB = fitLine(edgeBContacts)
+    if (!lineA || !lineB) throw new Error('Could not fit lines (need at least 2 points per edge)')
+
+    const angle = angleBetweenLines(lineA, lineB)
+    const error = Math.abs(angle - 90)
+    const pass = error <= tolerance
+
+    const flatA = edgeAContacts.map(p => perpDistance(p.x, p.y, lineA))
+    const flatB = edgeBContacts.map(p => perpDistance(p.x, p.y, lineB))
+    const devA = (Math.max(...flatA) - Math.min(...flatA))
+    const devB = (Math.max(...flatB) - Math.min(...flatB))
+
+    state.result = { angle, error, tolerance, pass, lineA, lineB, devA, devB }
+    state.diagram = { mode: 'squareness', edgeAContacts, edgeBContacts, lineA, lineB, angle, error, pass, side }
+    drawDiagram()
+
+    setStep('sq', 'calc', 'done', `${angle.toFixed(4)}°`)
+
+    document.getElementById('sq-results-body').innerHTML =
+      resultLine('Angle between edges', angle.toFixed(4) + '°') +
+      resultLine('Deviation from 90°', error.toFixed(4) + '°', error > tolerance ? 'danger' : '') +
+      resultLine('Edge A flatness', devA.toFixed(4) + ' mm') +
+      resultLine('Edge B flatness', devB.toFixed(4) + ' mm') +
+      resultLine('Tolerance', tolerance.toFixed(4) + '°') +
+      `<div class="result-line"><span class="rl">Result</span><span class="result-pass ${pass ? 'pass' : 'fail'}">${pass ? 'PASS' : 'FAIL'}</span></div>`
+
+    logProbe({ type: 'test_end', pass, angle: angle.toFixed(4), error: error.toFixed(4), tolerance })
+    document.getElementById('sq-results-section').style.display = ''
+    document.getElementById('sq-start-btn').style.display = ''
+    document.getElementById('sq-reset-btn').style.display = ''
+    toast(pass ? 'Squareness test PASSED' : 'Squareness test FAILED', pass ? 'ok' : 'err')
+
+  } catch (err) {
+    logProbe({ type: 'error', message: err.message, aborted: state.abort })
+    if (!state.abort) toast('Error: ' + err.message, 'err')
+    else toast('Aborted', 'warn')
+    markActiveError('sq', SQ_STEPS)
+    document.getElementById('sq-start-btn').style.display = ''
+    document.getElementById('sq-reset-btn').style.display = ''
+  } finally {
+    releaseWakeLock()
+    await call('unsubscribe', { event: 'line' })
+    state.probing = false
+    document.getElementById('sq-abort-btn').style.display = 'none'
+  }
+}
+
+function resetSquareness() {
+  state.result  = null
+  state.diagram = null
+  state.edges.A = { start: null, end: null, dir: '+Y', orient: null }
+  state.edges.B = { start: null, end: null, dir: '+X', orient: null }
+  ;['A','B'].forEach(e => {
+    document.getElementById(`edge${e}-start-val`).textContent = '—'
+    document.getElementById(`edge${e}-end-val`).textContent = '—'
+    document.getElementById(`edge${e}-start-val`).className = 'edge-coord-label'
+    document.getElementById(`edge${e}-end-val`).className = 'edge-coord-label'
+    document.getElementById(`edge${e}-start-btn`).classList.remove('recorded')
+    document.getElementById(`edge${e}-end-btn`).classList.remove('recorded')
+    document.getElementById(`edge${e}-orient`).textContent = ''
+    document.getElementById(`edge${e}-dir`).style.display = 'none'
+  })
+  document.getElementById('sq-steps-section').style.display   = 'none'
+  document.getElementById('sq-results-section').style.display = 'none'
+  document.getElementById('sq-start-btn').style.display = ''
+  document.getElementById('sq-abort-btn').style.display = 'none'
+  document.getElementById('sq-reset-btn').style.display = 'none'
+  drawDiagram()
+}
+
+// =============================================================================
+// STRAIGHTNESS TEST
+// =============================================================================
+async function startStraightness() {
+  if (!state.toolPos) { toast('Waiting for machine position...', 'warn'); return }
+  if (!state.edges.S.start || !state.edges.S.end) { toast('Record edge start and end', 'warn'); return }
+
+  const nPoints   = parseInt(document.getElementById('st-points').value) || 10
+  const feed      = parseInt(document.getElementById('st-feed').value)   || 100
+  const probeDist = parseFloat(document.getElementById('st-dist').value) || 15
+  const tolerance = parseFloat(document.getElementById('st-tol').value)  || 0.05
+  const safeZ     = parseFloat(document.getElementById('st-safe-z').value)
+  const origZ     = state.toolPos.z
+  const liftBet   = document.getElementById('st-lift-between').checked
+
+  const ST_STEPS = [
+    { id: 'probe',  label: `Probing straight edge (${nPoints} points)` },
+    { id: 'calc',   label: 'Calculating straightness...' },
+  ]
+
+  state.probing = true
+  state.abort   = false
+  state.result  = null
+  requestWakeLock()
+
+  document.getElementById('st-start-btn').style.display = 'none'
+  document.getElementById('st-abort-btn').style.display = ''
+  document.getElementById('st-reset-btn').style.display = 'none'
+  document.getElementById('st-results-section').style.display = 'none'
+
+  initSteps('st', ST_STEPS)
+  await call('subscribe', { event: 'line' })
+
+  const contacts = []
+
+  try {
+    // --- Probe edge ---
+    setStep('st', 'probe', 'active')
+    const pts = interpolatePoints(state.edges.S.start, state.edges.S.end, nPoints)
+    const axis = getProbeAxis(state.edges.S.orient)
+    const dir  = state.edges.S.dir
+
+    for (let i = 0; i < pts.length; i++) {
+      if (state.abort) throw new Error('Aborted')
+      const pt = pts[i]
+      safeMoveTo(pt.x, pt.y, safeZ, origZ, !liftBet || i === 0)
+      if (state.abort) throw new Error('Aborted')
+      const target = getProbeTarget(pt, probeDist, dir)
+      const prb = await doProbe(axis, target, feed)
+      if (!prb.ok) throw new Error(`Point ${i + 1}: probe did not trigger`)
+
+      const cx = prb.mx - state.wco.x
+      const cy = prb.my - state.wco.y
+      contacts.push({ x: cx, y: cy })
+
+      const ret = getRetractPos(pt, dir, probeDist)
+      retractMove(axis, ret.x, ret.y)
+    }
+    setStep('st', 'probe', 'done', `${contacts.length} points`)
+    state.diagram = { mode: 'straightness', contacts, line: null, maxDev: null, pass: null }
+    drawDiagram()
+
+    // --- Calculate ---
+    setStep('st', 'calc', 'active')
+    const line = fitLine(contacts)
+    if (!line) throw new Error('Could not fit line (need at least 2 points)')
+
+    const distances = contacts.map(p => perpDistance(p.x, p.y, line))
+    const maxDev = Math.max(...distances) - Math.min(...distances)
+    const pass = maxDev <= tolerance
+
+    state.result = { maxDev, tolerance, pass, line }
+    state.diagram = { mode: 'straightness', contacts, line, maxDev, tolerance, pass }
+    drawDiagram()
+
+    setStep('st', 'calc', 'done', `${maxDev.toFixed(4)} mm`)
+
+    document.getElementById('st-results-body').innerHTML =
+      resultLine('Max deviation (peak-to-valley)', maxDev.toFixed(4) + ' mm', maxDev > tolerance ? 'danger' : '') +
+      resultLine('Tolerance', tolerance.toFixed(4) + ' mm') +
+      `<div class="result-line"><span class="rl">Result</span><span class="result-pass ${pass ? 'pass' : 'fail'}">${pass ? 'PASS' : 'FAIL'}</span></div>`
+
+    logProbe({ type: 'test_end', pass, maxDev: maxDev.toFixed(4), tolerance })
+    document.getElementById('st-results-section').style.display = ''
+    document.getElementById('st-start-btn').style.display = ''
+    document.getElementById('st-reset-btn').style.display = ''
+    toast(pass ? 'Straightness test PASSED' : 'Straightness test FAILED', pass ? 'ok' : 'err')
+
+  } catch (err) {
+    logProbe({ type: 'error', message: err.message, aborted: state.abort })
+    if (!state.abort) toast('Error: ' + err.message, 'err')
+    else toast('Aborted', 'warn')
+    markActiveError('st', ST_STEPS)
+    document.getElementById('st-start-btn').style.display = ''
+    document.getElementById('st-reset-btn').style.display = ''
+  } finally {
+    releaseWakeLock()
+    await call('unsubscribe', { event: 'line' })
+    state.probing = false
+    document.getElementById('st-abort-btn').style.display = 'none'
+  }
+}
+
+function resetStraightness() {
+  state.result  = null
+  state.diagram = null
+  state.edges.S = { start: null, end: null, dir: '+Y', orient: null }
+  document.getElementById('edgeS-start-val').textContent = '—'
+  document.getElementById('edgeS-end-val').textContent = '—'
+  document.getElementById('edgeS-start-val').className = 'edge-coord-label'
+  document.getElementById('edgeS-end-val').className = 'edge-coord-label'
+  document.getElementById('edgeS-start-btn').classList.remove('recorded')
+  document.getElementById('edgeS-end-btn').classList.remove('recorded')
+  document.getElementById('edgeS-orient').textContent = ''
+  document.getElementById('edgeS-dir').style.display = 'none'
+  document.getElementById('st-steps-section').style.display   = 'none'
+  document.getElementById('st-results-section').style.display = 'none'
+  document.getElementById('st-start-btn').style.display = ''
+  document.getElementById('st-abort-btn').style.display = 'none'
+  document.getElementById('st-reset-btn').style.display = 'none'
+  drawDiagram()
+}
+
+// =============================================================================
+// REPEATABILITY TEST
+// =============================================================================
+function calcStats(vals) {
+  const n = vals.length
+  const mean = vals.reduce((a, b) => a + b, 0) / n
+  const variance = vals.reduce((s, v) => s + (v - mean) ** 2, 0) / (n - 1 || 1)
+  const std = Math.sqrt(variance)
+  return { n, mean, std, min: Math.min(...vals), max: Math.max(...vals), range: Math.max(...vals) - Math.min(...vals) }
+}
+
+// =============================================================================
+// Repeatability helpers
+// =============================================================================
+function recordRPTarget() {
+  if (!state.toolPos) { toast('No machine position', 'warn'); return }
+  document.getElementById('rp-target-x').value = state.toolPos.x.toFixed(3)
+  document.getElementById('rp-target-y').value = state.toolPos.y.toFixed(3)
+}
+
+function setRPDir(dir) {
+  document.querySelectorAll('#rp-dir-btns .dir-btn').forEach(b => b.classList.remove('active'))
+  document.querySelector(`#rp-dir-btns .dir-btn[data-dir="${dir}"]`).classList.add('active')
+}
+
+async function startRepeatability() {
+  if (!state.toolPos) { toast('Waiting for machine position...', 'warn'); return }
+
+  const targetX   = parseFloat(document.getElementById('rp-target-x').value)
+  const targetY   = parseFloat(document.getElementById('rp-target-y').value)
+  if (isNaN(targetX) || isNaN(targetY)) { toast('Enter target X and Y', 'warn'); return }
+
+  const repeats   = parseInt(document.getElementById('rp-repeats').value) || 10
+  const feed      = parseInt(document.getElementById('rp-feed').value)   || 100
+  const probeDist = parseFloat(document.getElementById('rp-dist').value) || 15
+  const safeZ     = parseFloat(document.getElementById('rp-safe-z').value)
+  const origZ     = state.toolPos.z
+  const liftBet   = document.getElementById('rp-lift-between').checked
+
+  const dirBtn = document.querySelector('#rp-dir-btns .dir-btn.active')
+  if (!dirBtn) { toast('Select a probe direction', 'warn'); return }
+  const dir  = dirBtn.dataset.dir
+  const axis = dir[1] === 'X' ? 'X' : 'Y'
+
+  const mid = { x: targetX, y: targetY }
+
+  const RP_STEPS = [
+    { id: 'probe', label: `Probing ${repeats} repeats...` },
+    { id: 'calc',  label: 'Calculating statistics...' },
+  ]
+
+  state.probing = true
+  state.abort   = false
+  state.result  = null
+  requestWakeLock()
+
+  document.getElementById('rp-start-btn').style.display = 'none'
+  document.getElementById('rp-abort-btn').style.display = ''
+  document.getElementById('rp-reset-btn').style.display = 'none'
+  document.getElementById('rp-results-section').style.display = 'none'
+
+  clearProbeLog()
+  logProbe({ type: 'test_start', test: 'repeatability', repeats, feed, probeDist, safeZ, origZ })
+  initSteps('rp', RP_STEPS)
+  await call('subscribe', { event: 'line' })
+
+  const contacts = []
+
+  try {
+    setStep('rp', 'probe', 'active')
+
+    for (let i = 0; i < repeats; i++) {
+      if (state.abort) throw new Error('Aborted')
+      safeMoveTo(mid.x, mid.y, safeZ, origZ, !liftBet || i === 0)
+      if (state.abort) throw new Error('Aborted')
+      const target = getProbeTarget(mid, probeDist, dir)
+      const prb = await doProbe(axis, target, feed)
+      if (!prb.ok) throw new Error(`Repeat ${i + 1}: probe did not trigger`)
+
+      const cx = prb.mx - state.wco.x
+      const cy = prb.my - state.wco.y
+      contacts.push({ x: cx, y: cy })
+
+      const ret = getRetractPos(mid, dir, probeDist)
+      retractMove(axis, ret.x, ret.y)
+
+      setStep('rp', 'probe', 'active', `${i + 1}/${repeats}`)
+    }
+    setStep('rp', 'probe', 'done', `${contacts.length} points`)
+
+    state.diagram = { mode: 'repeatability', contacts, stats: null }
+    drawDiagram()
+
+    // --- Calculate ---
+    setStep('rp', 'calc', 'active')
+    const xs = contacts.map(p => p.x)
+    const ys = contacts.map(p => p.y)
+    const statsX = calcStats(xs)
+    const statsY = calcStats(ys)
+    const dists = contacts.map((p, i) => i === 0 ? 0 : Math.hypot(p.x - contacts[0].x, p.y - contacts[0].y))
+    const distsFromMean = contacts.map(p => Math.hypot(p.x - statsX.mean, p.y - statsY.mean))
+    const maxSpread = Math.max(...distsFromMean)
+    const stats = { x: statsX, y: statsY, maxSpread, contacts }
+
+    state.result = stats
+    state.diagram = { mode: 'repeatability', contacts, stats }
+    drawDiagram()
+
+    setStep('rp', 'calc', 'done', `σx ${statsX.std.toFixed(4)}  σy ${statsY.std.toFixed(4)}`)
+
+    document.getElementById('rp-results-body').innerHTML =
+      `<div class="result-line"><span class="rl">Samples</span><span class="rv accent">${repeats}</span></div>` +
+      resultLine('Mean X', statsX.mean.toFixed(4) + ' mm') +
+      resultLine('Mean Y', statsY.mean.toFixed(4) + ' mm') +
+      resultLine('Std Dev X (σx)', statsX.std.toFixed(4) + ' mm', statsX.std > 0.01 ? 'danger' : '') +
+      resultLine('Std Dev Y (σy)', statsY.std.toFixed(4) + ' mm', statsY.std > 0.01 ? 'danger' : '') +
+      resultLine('Range X', statsX.range.toFixed(4) + ' mm') +
+      resultLine('Range Y', statsY.range.toFixed(4) + ' mm') +
+      resultLine('Max spread from mean', maxSpread.toFixed(4) + ' mm') +
+      `<div class="result-line"><span class="rl">±3σ X band</span><span class="rv accent">${(3 * statsX.std).toFixed(4)} mm</span></div>` +
+      `<div class="result-line"><span class="rl">±3σ Y band</span><span class="rv accent">${(3 * statsY.std).toFixed(4)} mm</span></div>`
+
+    document.getElementById('rp-results-section').style.display = ''
+    document.getElementById('rp-start-btn').style.display = ''
+    document.getElementById('rp-reset-btn').style.display = ''
+    toast('Repeatability test complete', 'ok')
+
+  } catch (err) {
+    logProbe({ type: 'error', message: err.message, aborted: state.abort })
+    if (!state.abort) toast('Error: ' + err.message, 'err')
+    else toast('Aborted', 'warn')
+    markActiveError('rp', RP_STEPS)
+    document.getElementById('rp-start-btn').style.display = ''
+    document.getElementById('rp-reset-btn').style.display = ''
+  } finally {
+    releaseWakeLock()
+    await call('unsubscribe', { event: 'line' })
+    state.probing = false
+    document.getElementById('rp-abort-btn').style.display = 'none'
+  }
+}
+
+function resetRepeatability() {
+  state.result  = null
+  state.diagram = null
+  document.getElementById('rp-target-x').value = '0'
+  document.getElementById('rp-target-y').value = '0'
+  document.querySelectorAll('#rp-dir-btns .dir-btn').forEach(b => b.classList.remove('active'))
+  document.querySelector('#rp-dir-btns .dir-btn[data-dir="+Y"]').classList.add('active')
+  document.getElementById('rp-steps-section').style.display   = 'none'
+  document.getElementById('rp-results-section').style.display = 'none'
+  document.getElementById('rp-start-btn').style.display = ''
+  document.getElementById('rp-abort-btn').style.display = 'none'
+  document.getElementById('rp-reset-btn').style.display = 'none'
+  drawDiagram()
+}
+
+// =============================================================================
+// Common actions
+// =============================================================================
+function abortProbe() {
+  logProbe({ type: 'abort' })
+  state.abort = true
+  if (state.probeReject) {
+    state.probeReject(new Error('Aborted by user'))
+    state.probeReject = null
+  }
+  call('sendRealtime', { byte: 0x18 })
+  toast('Aborting...', 'warn')
+}
+
+function resultLine(label, value, cls) {
+  return `<div class="result-line"><span class="rl">${label}</span><span class="rv ${cls || ''}">${value}</span></div>`
+}
+
+// =============================================================================
+// Diagram
+// =============================================================================
+function cssVar(name, fallback) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback
+}
+
+function drawDiagram() {
+  const canvas = document.getElementById('probe-canvas')
+  if (!canvas) return
+
+  const wrap = canvas.parentElement
+  const W = wrap.clientWidth  || 300
+  const H = wrap.clientHeight || 300
+  const dpr = window.devicePixelRatio || 1
+
+  canvas.width  = W * dpr
+  canvas.height = H * dpr
+  canvas.style.width  = W + 'px'
+  canvas.style.height = H + 'px'
+
+  const ctx = canvas.getContext('2d')
+  ctx.scale(dpr, dpr)
+
+  const BG      = cssVar('--bg',           '#0c1018')
+  const BORDER  = cssVar('--border',       '#222840')
+  const ACCENT  = cssVar('--accent',       '#f0a030')
+  const OK      = cssVar('--ok',           '#22c55e')
+  const MUTED   = cssVar('--text-muted',   '#6a7898')
+  const DIM     = cssVar('--text-dim',     '#3c4860')
+  const PRIMARY = cssVar('--text-primary', '#e2e6f4')
+  const DANGER  = cssVar('--danger',       '#ef4444')
+
+  ctx.fillStyle = BG
+  ctx.fillRect(0, 0, W, H)
+
+  const cx = W / 2
+  const cy = H / 2
+  const mg = 44
+
+  const d = state.diagram
+
+  if (!d) {
+    // Idle placeholder
+    ctx.strokeStyle = DIM
+    ctx.lineWidth   = 0.5
+    ctx.globalAlpha = 0.2
+    ctx.beginPath()
+    ctx.moveTo(mg, cy); ctx.lineTo(W - mg, cy)
+    ctx.moveTo(cx, mg); ctx.lineTo(cx, H - mg)
+    ctx.stroke()
+    ctx.globalAlpha = 1
+
+    // Draw probe side indicator
+    const side = state.activeTab === 'squareness' ? state.probeSide : 'outside'
+    const label = state.activeTab === 'squareness'
+      ? (side === 'outside' ? 'Outside mode — probe approaches from outside' : 'Inside mode — probe from inside pocket')
+      : state.activeTab === 'straightness'
+        ? 'Straightness — probe edge face'
+        : 'Repeatability — probe same spot repeatedly'
+
+    ctx.fillStyle    = DIM
+    ctx.font         = '12px ui-sans-serif, system-ui, sans-serif'
+    ctx.textAlign    = 'center'
+    ctx.textBaseline = 'bottom'
+    ctx.fillText(label, cx, H - 10)
+
+    ctx.fillStyle    = DIM
+    ctx.font         = '12px ui-sans-serif, system-ui, sans-serif'
+    ctx.textAlign    = 'center'
+    ctx.textBaseline = 'top'
+    ctx.fillText(state.activeTab === 'repeatability' ? 'Set target position and press Start' : 'Record edge positions and press Start', cx, 10)
+    return
+  }
+
+  // Gather all points for scale calculation
+  let allPts = []
+  if (d.mode === 'squareness') {
+    allPts = [...(d.edgeAContacts || []), ...(d.edgeBContacts || [])]
+    if (state.edges.A.start) allPts.push(state.edges.A.start)
+    if (state.edges.A.end)   allPts.push(state.edges.A.end)
+    if (state.edges.B.start) allPts.push(state.edges.B.start)
+    if (state.edges.B.end)   allPts.push(state.edges.B.end)
+  } else {
+    allPts = [...(d.contacts || [])]
+    if (state.edges.S.start) allPts.push(state.edges.S.start)
+    if (state.edges.S.end)   allPts.push(state.edges.S.end)
+  }
+
+  if (allPts.length === 0) return
+
+  const minX = Math.min(...allPts.map(p => p.x))
+  const maxX = Math.max(...allPts.map(p => p.x))
+  const minY = Math.min(...allPts.map(p => p.y))
+  const maxY = Math.max(...allPts.map(p => p.y))
+
+  const rangeX = Math.max(maxX - minX, 0.001) * 1.4
+  const rangeY = Math.max(maxY - minY, 0.001) * 1.4
+  const midX = (minX + maxX) / 2
+  const midY = (minY + maxY) / 2
+
+  const scale = Math.min((W - 2 * mg) / rangeX, (H - 2 * mg) / rangeY)
+
+  function toC(wx, wy) {
+    return { x: cx + (wx - midX) * scale, y: cy - (wy - midY) * scale }
+  }
+
+  // Axis lines
+  ctx.strokeStyle = DIM
+  ctx.lineWidth = 0.5
+  ctx.globalAlpha = 0.35
+  ctx.beginPath()
+  ctx.moveTo(mg, cy); ctx.lineTo(W - mg, cy)
+  ctx.moveTo(cx, mg); ctx.lineTo(cx, H - mg)
+  ctx.stroke()
+  ctx.globalAlpha = 1
+
+  // Helper to draw a line across the canvas
+  function drawFitLine(l, color, lineW) {
+    if (!l) return
+    ctx.strokeStyle = color || ACCENT
+    ctx.lineWidth = lineW || 2
+    ctx.setLineDash([6, 4])
+
+    let x1, y1, x2, y2
+    if (l.useX) {
+      x1 = midX - rangeX / 2
+      y1 = lineY(l, x1)
+      x2 = midX + rangeX / 2
+      y2 = lineY(l, x2)
+    } else {
+      y1 = midY - rangeY / 2
+      x1 = lineX(l, y1)
+      y2 = midY + rangeY / 2
+      x2 = lineX(l, y2)
+    }
+
+    const p1 = toC(x1, y1)
+    const p2 = toC(x2, y2)
+    ctx.beginPath()
+    ctx.moveTo(p1.x, p1.y)
+    ctx.lineTo(p2.x, p2.y)
+    ctx.stroke()
+    ctx.setLineDash([])
+  }
+
+  if (d.mode === 'squareness') {
+    // Draw fitted lines
+    if (d.lineA && d.lineB) {
+      drawFitLine(d.lineA, OK, 2)
+      drawFitLine(d.lineB, OK, 2)
+    }
+
+    // Draw contact points
+    const colors = ['#f0a030', '#60a5fa']
+    const labelsA = ['A1','A2','A3','A4','A5','A6','A7','A8','A9','A10']
+    const labelsB = ['B1','B2','B3','B4','B5','B6','B7','B8','B9','B10']
+
+    if (d.edgeAContacts) {
+      ctx.fillStyle = colors[0]
+      for (let i = 0; i < d.edgeAContacts.length; i++) {
+        const p = toC(d.edgeAContacts[i].x, d.edgeAContacts[i].y)
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, 5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#000'
+        ctx.font = 'bold 9px ui-monospace, monospace'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(labelsA[i] || `A${i+1}`, p.x, p.y)
+        ctx.fillStyle = colors[0]
+      }
+    }
+
+    if (d.edgeBContacts) {
+      ctx.fillStyle = colors[1]
+      for (let i = 0; i < d.edgeBContacts.length; i++) {
+        const p = toC(d.edgeBContacts[i].x, d.edgeBContacts[i].y)
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, 5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#000'
+        ctx.font = 'bold 9px ui-monospace, monospace'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(labelsB[i] || `B${i+1}`, p.x, p.y)
+        ctx.fillStyle = colors[1]
+      }
+    }
+
+    // Draw angle arc
+    if (d.lineA && d.lineB && d.angle !== null) {
+      const mp = toC(midX, midY)
+      const arcR = 28
+      ctx.strokeStyle = ACCENT
+      ctx.lineWidth = 1.5
+
+      let startAngle, endAngle
+      const a1 = d.lineA.useX ? Math.atan(d.lineA.m) : Math.atan2(1, d.lineA.m)
+      const a2 = d.lineB.useX ? Math.atan(d.lineB.m) : Math.atan2(1, d.lineB.m)
+
+      startAngle = Math.min(a1, a2)
+      endAngle   = Math.max(a1, a2)
+
+      if (endAngle - startAngle > Math.PI / 2 + 0.1) {
+        const tmp = startAngle
+        startAngle = endAngle
+        endAngle = tmp + Math.PI
+      }
+
+      if (endAngle - startAngle > Math.PI / 2 + 0.1) {
+        endAngle = startAngle + Math.PI / 2
+      }
+
+      ctx.beginPath()
+      ctx.arc(mp.x, mp.y, arcR, -startAngle, -endAngle)
+      ctx.stroke()
+
+      // Angle label
+      const midA = (startAngle + endAngle) / 2
+      const labelX = mp.x + (arcR + 14) * Math.cos(-midA)
+      const labelY = mp.y + (arcR + 14) * Math.sin(-midA)
+      ctx.fillStyle = ACCENT
+      ctx.font = 'bold 11px ui-sans-serif, system-ui, sans-serif'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(`${d.angle.toFixed(3)}°`, labelX, labelY)
+    }
+
+    // Draw recorded edge lines (dashed, dim)
+    ctx.strokeStyle = MUTED
+    ctx.lineWidth = 1
+    ctx.globalAlpha = 0.3
+    ctx.setLineDash([4, 4])
+    if (state.edges.A.start && state.edges.A.end) {
+      const s = toC(state.edges.A.start.x, state.edges.A.start.y)
+      const e = toC(state.edges.A.end.x, state.edges.A.end.y)
+      ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(e.x, e.y); ctx.stroke()
+    }
+    if (state.edges.B.start && state.edges.B.end) {
+      const s = toC(state.edges.B.start.x, state.edges.B.start.y)
+      const e = toC(state.edges.B.end.x, state.edges.B.end.y)
+      ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(e.x, e.y); ctx.stroke()
+    }
+    ctx.globalAlpha = 1
+    ctx.setLineDash([])
+
+    // Probed contact line (solid dim)
+    if (d.edgeAContacts.length > 1) {
+      ctx.strokeStyle = DIM
+      ctx.lineWidth = 1
+      ctx.globalAlpha = 0.5
+      ctx.beginPath()
+      for (let i = 0; i < d.edgeAContacts.length; i++) {
+        const p = toC(d.edgeAContacts[i].x, d.edgeAContacts[i].y)
+        i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)
+      }
+      ctx.stroke()
+    }
+    if (d.edgeBContacts.length > 1) {
+      ctx.strokeStyle = DIM
+      ctx.lineWidth = 1
+      ctx.globalAlpha = 0.5
+      ctx.beginPath()
+      for (let i = 0; i < d.edgeBContacts.length; i++) {
+        const p = toC(d.edgeBContacts[i].x, d.edgeBContacts[i].y)
+        i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)
+      }
+      ctx.stroke()
+    }
+    ctx.globalAlpha = 1
+
+  } else if (d.mode === 'repeatability') {
+    // Draw all contact points
+    if (d.contacts && d.stats) {
+      for (let i = 0; i < d.contacts.length; i++) {
+        const p = toC(d.contacts[i].x, d.contacts[i].y)
+        ctx.fillStyle = ACCENT
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, 4, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#000'
+        ctx.font = 'bold 9px ui-monospace, monospace'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(String(i + 1), p.x, p.y)
+      }
+
+      // Mean crosshair
+      const mp = toC(d.stats.x.mean, d.stats.y.mean)
+      const cs = 8
+      ctx.strokeStyle = OK
+      ctx.lineWidth = 1.5
+      ctx.beginPath()
+      ctx.moveTo(mp.x - cs, mp.y); ctx.lineTo(mp.x + cs, mp.y)
+      ctx.moveTo(mp.x, mp.y - cs); ctx.lineTo(mp.x, mp.y + cs)
+      ctx.stroke()
+
+      // ±3σ ellipse
+      const rx = 3 * d.stats.x.std * scale
+      const ry = 3 * d.stats.y.std * scale
+      if (rx > 1 && ry > 1) {
+        ctx.strokeStyle = DANGER
+        ctx.lineWidth = 1
+        ctx.setLineDash([4, 4])
+        ctx.beginPath()
+        ctx.ellipse(mp.x, mp.y, rx, ry, 0, 0, Math.PI * 2)
+        ctx.stroke()
+        ctx.setLineDash([])
+      }
+
+      // Statistics
+      ctx.fillStyle = DIM
+      ctx.font = '11px ui-sans-serif, system-ui, sans-serif'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'bottom'
+      ctx.fillText(`σx ${d.stats.x.std.toFixed(4)}  σy ${d.stats.y.std.toFixed(4)}`, cx, H - 10)
+      ctx.fillStyle = MUTED
+      ctx.textBaseline = 'top'
+      ctx.fillText(`Mean (${d.stats.x.mean.toFixed(3)}, ${d.stats.y.mean.toFixed(3)})  ${d.stats.maxSpread.toFixed(4)} mm max spread`, cx, H - 5)
+    }
+
+  } else if (d.mode === 'straightness') {
+    // Draw fitted line
+    if (d.line) {
+      drawFitLine(d.line, OK, 2)
+    }
+
+    // Draw contact points with deviation lines
+    if (d.contacts) {
+      for (let i = 0; i < d.contacts.length; i++) {
+        const p = toC(d.contacts[i].x, d.contacts[i].y)
+
+        // Deviation line from point to fitted line
+        if (d.line) {
+          let projX, projY
+          if (d.line.useX) {
+            projX = d.contacts[i].x
+            projY = lineY(d.line, projX)
+          } else {
+            projY = d.contacts[i].y
+            projX = lineX(d.line, projY)
+          }
+          const pp = toC(projX, projY)
+
+          const dist = perpDistance(d.contacts[i].x, d.contacts[i].y, d.line)
+          const maxDist = d.maxDev || 0.001
+          const intensity = Math.min(dist / maxDist, 1)
+
+          ctx.strokeStyle = `rgba(239, 68, 68, ${0.3 + intensity * 0.5})`
+          ctx.lineWidth = 1
+          ctx.setLineDash([3, 3])
+          ctx.beginPath()
+          ctx.moveTo(p.x, p.y)
+          ctx.lineTo(pp.x, pp.y)
+          ctx.stroke()
+          ctx.setLineDash([])
+        }
+
+        // Point dot
+        ctx.fillStyle = ACCENT
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, 4, 0, Math.PI * 2)
+        ctx.fill()
+      }
+    }
+
+    // Deviation label
+    if (d.maxDev !== null) {
+      ctx.fillStyle = d.pass ? OK : DANGER
+      ctx.font = 'bold 13px ui-sans-serif, system-ui, sans-serif'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'bottom'
+      ctx.fillText(`Max deviation: ${d.maxDev.toFixed(4)} mm`, cx, H - 10)
+
+      if (d.tolerance !== undefined) {
+        ctx.fillStyle = MUTED
+        ctx.font = '11px ui-sans-serif, system-ui, sans-serif'
+        ctx.textBaseline = 'top'
+        ctx.fillText(`Tolerance: ${d.tolerance.toFixed(4)} mm`, cx, H - 5)
+      }
+    }
+  }
+
+  // Labels
+  if (d.mode === 'squareness' && d.angle !== null) {
+    ctx.fillStyle = d.pass ? OK : DANGER
+    ctx.font = 'bold 14px ui-sans-serif, system-ui, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'bottom'
+    ctx.fillText(d.pass ? 'PASS' : 'FAIL', cx, 28)
+  }
+}
+
+// =============================================================================
+// Init
+// =============================================================================
+async function init() {
+  await call('subscribe', { event: 'status' })
+  drawDiagram()
+}
+
+const resizeObs = new ResizeObserver(() => drawDiagram())
+resizeObs.observe(document.getElementById('probe-canvas').parentElement)
+init()
+
+</script>
+</body>
+</html>
