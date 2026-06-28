@@ -2,6 +2,67 @@
 
 A FigUI plugin for probing squareness, straightness, and probe repeatability on a CNC running FluidNC. Uses a touch probe to contact workpiece faces and compute geometric errors and statistics.
 
+## Installation
+
+Copy the `plugins/square-check/` folder to your FluidNC SD card's `plugins` directory, then restart FigUI or reload plugins from the settings menu.
+
+```
+SD card root/
+  plugins/
+    square-check/
+      plugin.json
+      index.html
+      style.css
+      icon.png
+```
+
+## Usage Scenarios
+
+Two ways to use this plugin depending on what you're testing:
+
+- **Workpiece inspection** — if your CNC is already square and accurate, probe the edges of a workpiece to check if they are square and straight.
+- **Machine verification** — to test the CNC itself, place a reference straight edge or square on the machine bed, probe it, and assess the results.
+
+## User Guide
+
+### Squareness Tab
+
+Measures the angle between two reference edges (e.g. a square's sides).
+
+1. **Record edges** — jog the probe near Edge A, click **Record Start** then **Record End** to define its length and orientation. Repeat for Edge B.
+2. **Select probe direction** — after recording each edge, choose the direction the probe will approach (e.g. +Y to probe toward the edge from below).
+3. **Set parameters** — number of points per edge, probe feed, probe distance, tolerance (default 0.025°). Optionally set Safe Z height.
+4. **Click Start** — the probe contacts each edge at evenly-spaced points. Results show the angle between edges, deviation from 90°, pass/fail, and per-edge flatness.
+
+Modes: **Outside** (probe approaches from outside the square) / **Inside** (probe from inside a pocket).
+
+### Straightness Tab
+
+Measures deviation along a single edge.
+
+1. **Record edge** — record start and end along the edge face.
+2. **Select probe direction** for the edge.
+3. **Set parameters** — points, feed, distance, tolerance (default 0.25 mm).
+4. **Click Start** — probes along the edge, fits a reference line, reports the peak-to-valley deviation.
+
+### Repeatability Tab
+
+Measures how consistently the probe returns to the same spot.
+
+1. **Set target position** — type X/Y coordinates or jog the probe near the surface and click **Get Current Position**.
+2. **Select probe direction** (+Y/-Y/+X/-X).
+3. **Set parameters** — number of repeats (5–50), feed, distance, Safe Z.
+4. **Click Start** — probes the same spot N times and reports: mean position, standard deviation (σx, σy), range, max spread from mean, and ±3σ bands.
+
+### Common Features
+
+- **Safe Z** — lifts Z to a safe height before XY moves to prevent crashes. Leave empty to skip. "Only lift Z between edges" (or "on first repeat") avoids unnecessary lifts within the same edge.
+- **Abort** — cancels the current test at any time.
+- **Diagram** — the canvas auto-scales to fit all points and shows fitted lines, labels, and pass/fail.
+- **Results** — after a test completes, the Start button reappears so you can retry without re-recording edges.
+
+---
+
 ## File Structure
 
 ```
